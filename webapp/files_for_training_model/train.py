@@ -17,10 +17,30 @@ and the percentage of people with heart disease in an imaginary sample of 500 to
 
 """
 
-import pandas as pd
+import os
+import warnings
+import sys
+
 import seaborn as sns
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
 import pickle
+from urllib.parse import urlparse
+import mlflow
+import mlflow.sklearn
+
+import logging
+
+logging.basicConfig(level=logging.WARN)
+logger = logging.getLogger(__name__)
+
+mlflow.set_tracking_uri("http://10.31.8.38:5000")
+mlflow.set_experiment("vmflow-server-exp-02")
+
+if __name__ == "__main__":
+    warnings.filterwarnings("ignore")
+    np.random.seed(40)
 
 df = pd.read_csv('heart_data.csv')
 print(df.head())
@@ -47,27 +67,39 @@ pickle.dump(X_train, open(filename, 'wb'))
 
 from sklearn import linear_model
 
+with mlflow.start_run():
 #Create Linear Regression object
-model = linear_model.LinearRegression()
+  model = linear_model.LinearRegression()
 
 #Now let us call fit method to train the model using independent variables.
 #And the value that needs to be predicted (Images_Analyzed)
 
-model.fit(X_train, y_train) #Indep variables, dep. variable to be predicted
-print(model.score(X_train, y_train))  #Prints the R^2 value, a measure of how well
+  model.fit(X_train, y_train) #Indep variables, dep. variable to be predicted
+  print(model.score(X_train, y_train))  #Prints the R^2 value, a measure of how well
 
 
-prediction_test = model.predict(X_test)    
-print(y_test, prediction_test)
-print("Mean sq. errror between y_test and predicted =", np.mean(prediction_test-y_test)**2)
+  prediction_test = model.predict(X_test)    
+  print(y_test, prediction_test)
+  print("Mean sq. errror between y_test and predicted =", np.mean(prediction_test-y_test)**2)
 
-import pickle
-pickle.dump(model, open('model.pkl','wb'))
+  
+  pickle.dump(model, open('model.pkl','wb'))
 
-model = pickle.load(open('model.pkl','rb'))
-print(model.predict([[20.1, 56.3]]))
+  model = pickle.load(open('model.pkl','rb'))
+  print(model.predict([[20.1, 56.3]]))
 
+  tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
 
+        # Model registry does not work with file store
+  if tracking_url_type_store != "file":
+
+            # Register the model
+            # There are other ways to use the Model Registry, which depends on the use case,
+            # please refer to the doc for more information:
+            # https://mlflow.org/docs/latest/model-registry.html#api-workflow
+    mlflow.sklearn.log_model(regressor, "model", registered_model_name="LinearRegressordummy")
+  else:
+    mlflow.sklearn.log_model(regressor, "model")
 #Model is ready. Let us check the coefficients, stored as reg.coef_.
 #These are a, b, and c from our equation. 
 #Intercept is stored as reg.intercept_
